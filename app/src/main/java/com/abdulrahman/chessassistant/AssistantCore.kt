@@ -266,6 +266,7 @@ class AssistantCore(
             changeSince = now
             lastFp = fp
             stableCount = 0
+            output.debug(describeUnknowns(samples, obs, r))
             say("تعذّر تأكيد بعض القطع؛ أعيد الفحص دون إرسال وضعية للمحرك")
             return
         }
@@ -292,6 +293,35 @@ class AssistantCore(
                 }
             }
         }
+    }
+
+
+    /** تشخيص ميداني للمربعات المرفوضة دون تغيير قرار التعرف أو تخمين قطعة. */
+    private fun describeUnknowns(samples: Array<SquareSample>, obs: CharArray, r: BoardRect): String {
+        val sb = StringBuilder("تشخيص التعرف | رقعة: x=")
+            .append(r.left.toInt()).append(" y=").append(r.top.toInt())
+            .append(" size=").append(r.size.toInt())
+            .append(" | الاتجاه=").append(if (flipped) "مقلوب" else "عادي")
+            .append("\nالمربعات المرفوضة:")
+        var count = 0
+        for (row in 0..7) for (col in 0..7) {
+            val index = screenToIndex(row, col, flipped)
+            if (obs[index] != '?') continue
+            count++
+            if (count > 12) continue
+            val sample = samples[row * 8 + col]
+            val result = recognizer.classifyDetailed(sample)
+            val square = "${'a' + (index % 8)}${index / 8 + 1}"
+            sb.append("\n").append(square)
+                .append(" occ=").append(String.format(java.util.Locale.US, "%.2f", sample.occupancy))
+                .append(" lum=").append(sample.luminance.toInt())
+            if (result == null) sb.append(" match=none")
+            else sb.append(" best=").append(result.piece)
+                .append(" dist=").append(String.format(java.util.Locale.US, "%.3f", result.distance))
+                .append(" conf=").append(String.format(java.util.Locale.US, "%.2f", result.confidence))
+        }
+        sb.append("\nإجمالي المربعات المرفوضة: ").append(count)
+        return sb.toString()
     }
 
     /** عزل النصوص اللاتينية عن اتجاه RTL حتى لا يعيد Android ترتيب رموز الرقعة بصرياً. */
