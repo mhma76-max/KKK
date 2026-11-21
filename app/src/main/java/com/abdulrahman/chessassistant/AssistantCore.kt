@@ -319,6 +319,7 @@ class AssistantCore(
             else sb.append(" best=").append(result.piece)
                 .append(" dist=").append(String.format(java.util.Locale.US, "%.3f", result.distance))
                 .append(" conf=").append(String.format(java.util.Locale.US, "%.2f", result.confidence))
+                .append(" [").append(recognizer.distanceProfile(sample)).append("]")
         }
         sb.append("\nإجمالي المربعات المرفوضة: ").append(count)
         return sb.toString()

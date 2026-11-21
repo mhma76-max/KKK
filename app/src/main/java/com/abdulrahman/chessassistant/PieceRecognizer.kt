@@ -178,13 +178,38 @@ class PieceRecognizer {
         return true
     }
 
+    /**
+     * مقارنة تتحمل انزياحاً صغيراً (بكسل/خلية واحدة على شبكة 16x16).
+     * لقطات Android قد تغيّر حواف الرسم بمقدار خلية بسبب التحجيم ومكافحة التعرج؛
+     * المقارنة الصارمة في المواضع نفسها كانت تعاقب القطعة الصحيحة بشدة.
+     * تبقى عقوبة الحواف خارج القالب محسوبة، لذلك لا يمكن مطابقة شكل مختلف بمجرد الإزاحة.
+     */
     private fun distance(a: FloatArray, b: FloatArray): Float {
-        var d = 0f
-        for (k in 0 until T * T) {
-            val e = a[k] - b[k]
-            d += e * e
+        var best = Float.MAX_VALUE
+        for (dy in -1..1) for (dx in -1..1) {
+            var total = 0f
+            for (y in 0 until T) for (x in 0 until T) {
+                val sx = x - dx
+                val sy = y - dy
+                val av = if (sx in 0 until T && sy in 0 until T) a[sy * T + sx] else 0f
+                val e = av - b[y * T + x]
+                total += e * e
+            }
+            val d = total / (T * T)
+            if (d < best) best = d
         }
-        return d / (T * T)
+        return best
+    }
+
+    /** مسافات أقرب مثال لكل نوع، لتحديد هل الخلل في شكل القالب أم في قرار الثقة. */
+    fun distanceProfile(s: SquareSample): String {
+        if (!isCalibrated) return "uncalibrated"
+        return TYPES.indices.joinToString(" ") { i ->
+            var best = Float.MAX_VALUE
+            for (sample in exemplars[i]) best = minOf(best, distance(s.silhouette, sample))
+            templates[i]?.let { best = minOf(best, distance(s.silhouette, it)) }
+            "${TYPES[i]}=${String.format(java.util.Locale.US, "%.3f", best)}"
+        }
     }
 
     /** Best visual match plus a confidence estimate in [0,1]. */
